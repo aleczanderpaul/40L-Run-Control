@@ -1,110 +1,144 @@
-import pyqtgraph as pg
 from pyqtgraph.Qt import QtWidgets, QtCore
+import pyqtgraph as pg
 import numpy as np
-import sys
 from collections import deque
+import sys
 
-# Define a class to manage the GUI, plotting, and updates
+# Class to handle live plotting with individual start/stop buttons under each plot
 class LivePlotter:
-    def __init__(self, win_title, plots_per_row=2):
-        # Create the main Qt application (required for GUI)
+    def __init__(self, win_title, plots_per_row):
+        # Create the main Qt application
         self.app = QtWidgets.QApplication(sys.argv)
 
-        # Create a graphics layout widget which can hold multiple plots
-        self.win = pg.GraphicsLayoutWidget(show=True, title=f"{win_title}")
+        # Main window setup
+        self.main_window = QtWidgets.QMainWindow()
+        self.main_widget = QtWidgets.QWidget()
+        self.main_layout = QtWidgets.QVBoxLayout()
+        self.main_widget.setLayout(self.main_layout)
+        self.main_window.setCentralWidget(self.main_widget)
+        self.main_window.setWindowTitle(win_title)
 
-        # Counter to track how many plots have been added
-        self.plot_count = 0
+        # Grid layout to place plot+button containers in rows/columns
+        self.grid_layout = QtWidgets.QGridLayout()
+        self.main_layout.addLayout(self.grid_layout)
 
-        # Controls how many plots per row in the grid layout
-        self.plots_per_row = plots_per_row
+        # Internal state tracking
+        self.plot_count = 0                       # How many plots have been added
+        self.plots_per_row = plots_per_row        # How many plots per row
+        self.data = {}                            # title -> [x_deque, y_deque]
+        self.curves = {}                          # title -> plot curve
+        self.interval_timers = {}                 # title -> QTimer for updates
+        self.elapsed_timers = {}                  # title -> QElapsedTimer for time axis
+        self.running_state = {}                   # title -> bool: is plot running
+        self.start_stop_buttons = {}              # title -> start/stop QPushButton
+        self.save_data_buttons = {}               # title -> save data QPushButton
 
-        self.data = {}      # Dictionary of numpy arrays, to store data for each plot
-        self.curves = {}    # Dictionary of curve objects, to plot data
-        self.interval_timers = {}    # Dictionary of interval timers (tells plot when to update)
-        self.elapsed_timers = {} # Dictionary to hold elapsed timers for each plot (for x-axis)
-
-    # Method to add a new plot to the layout
-    def add_plot(self, title, x_axis, y_axis, buffer_size=100): #x_axis and y_axis are tuples (label, unit)
-        # Move to the next row after a certain number of plots per row
-        if self.plot_count % self.plots_per_row == 0 and self.plot_count > 0:
-            self.win.nextRow()
-        
-        # Increment the plot counter
+    # Add a new plot with button below it
+    def add_plot(self, title, x_axis, y_axis, buffer_size):
+        # Determine position in the grid layout
+        row = self.plot_count // self.plots_per_row
+        col = self.plot_count % self.plots_per_row
         self.plot_count += 1
 
-        # Add a new plot with specified layout
-        plot = self.win.addPlot(title=title)
-        plot.setLabel('bottom', f'{x_axis[0]}', units=f'{x_axis[1]}')
-        plot.setLabel('left', f'{y_axis[0]}', units=f'{y_axis[1]}')
-        plot.showGrid(x=True, y=True)
+        # Vertical layout to hold the plot and button
+        container = QtWidgets.QVBoxLayout()
 
-        # Initialize data storage for the plot, using deque for O(1) complexity for appending and removing old data
-        self.data[title] = [deque(maxlen=buffer_size), deque(maxlen=buffer_size)] #[x, y] deques
+        # Create the plot widget
+        plot_widget = pg.PlotWidget(title=title)
+        plot_widget.setLabel('bottom', x_axis[0], units=x_axis[1])
+        plot_widget.setLabel('left', y_axis[0], units=y_axis[1])
+        plot_widget.showGrid(x=True, y=True)
 
-        # Add a curve (line) to the plot with yellow color
-        curve = plot.plot(x=self.data[title][0], y=self.data[title][1], pen='y')
+        # Initialize circular buffers for x and y data
+        self.data[title] = [deque(maxlen=buffer_size), deque(maxlen=buffer_size)]
 
-        #Store the curve object in the curves dictionary
+        # Create the plot curve
+        curve = plot_widget.plot(pen='y')  # yellow line
         self.curves[title] = curve
 
-    # Method to update a plot with new data
+        # Create the start/stop button
+        start_stop_button = QtWidgets.QPushButton(f"Stop {title}")
+        start_stop_button.setStyleSheet("background-color: red;")
+        start_stop_button.clicked.connect(lambda _, t=title: self.toggle_plot(t, buffer_size))
+        self.start_stop_buttons[title] = start_stop_button
+
+        # Create the save data button
+        save_data_button = QtWidgets.QPushButton(f"Save {title} to CSV")
+        save_data_button.clicked.connect(lambda _, t=title: self.save_data(t))
+        self.save_data_buttons[title] = save_data_button
+
+        # Add plot and button to vertical container
+        container.addWidget(plot_widget)
+        container.addWidget(start_stop_button)
+        container.addWidget(save_data_button)
+
+        # Wrap the layout in a QWidget and add it to the grid
+        container_widget = QtWidgets.QWidget()
+        container_widget.setLayout(container)
+        self.grid_layout.addWidget(container_widget, row, col)
+
+    # Update function: appends a new random data point and refreshes the plot
     def update(self, title):
-        # Generate new data point (random number from a normal distribution)
-        new_val_x = self.get_elapsed_time(title)
-        new_val_y = np.random.randn(1)[0]
-
-        x_data = self.data[title][0]  # Get the x-data deque for the plot
-        y_data = self.data[title][1]  # Get the y-data deque for the plot
-
-        #Append the new x, y to the deque lists
-        x_data.append(new_val_x)
-        y_data.append(new_val_y)
-
-        #Plot the new data by updating the curve
+        x_data, y_data = self.data[title]
+        x_data.append(self.get_elapsed_time(title))
+        y_data.append(np.random.randn())  # Replace with real data if desired
         self.curves[title].setData(x=x_data, y=y_data)
 
+    # Return elapsed time in seconds since the plot started
     def get_elapsed_time(self, title):
-        elapsed_timer = self.elapsed_timers.get(title)
-        elapsed_time = elapsed_timer.elapsed() 
-        return elapsed_time / 1000.0  # Convert milliseconds to seconds
+        return self.elapsed_timers[title].elapsed() / 1000.0
 
-    # Method to start a timer that periodically updates a specific plot
-    def start_timer(self, title, interval_ms=100):
-        # Create a new QTimer instance (interval timer, counts down in milliseconds)
-        interval_timer = QtCore.QTimer()
+    # Starts the QTimer that drives the updates for a given plot
+    def start_timer(self, title, interval_ms):
+        # Create a timer to update the plot regularly
+        timer = QtCore.QTimer()
+        timer.timeout.connect(lambda: self.update(title))
+        timer.start(interval_ms)
+        self.interval_timers[title] = timer
 
-        # Connect the timer's timeout signal to a lambda that calls self.update(title)
-        interval_timer.timeout.connect(lambda: self.update(title))
-
-        # Start the timer with the given interval (in milliseconds)
-        interval_timer.start(interval_ms)
-
-        # Store the interval timer in the interval timers dictionary to keep a reference to it
-        # This prevents it from being garbage collected and allows later control (e.g., stopping)
-        self.interval_timers[title] = interval_timer
-
-        # Start a QElapsedTimer for this plot and store it in the elapsed timers dictionary
+        # Start a timer to track elapsed time for the X-axis
         elapsed = QtCore.QElapsedTimer()
         elapsed.start()
         self.elapsed_timers[title] = elapsed
 
-    # Start the Qt application event loop
+        # Mark the plot as running
+        self.running_state[title] = True
+
+    # Toggle between start and stop for a given plot
+    def toggle_plot(self, title, buffer_size):
+        if self.running_state[title]:
+            # Stop the timer and update the button text
+            self.interval_timers[title].stop()
+            self.start_stop_buttons[title].setText(f"Start {title}")
+            self.start_stop_buttons[title].setStyleSheet("background-color: green;")
+            self.running_state[title] = False
+        else:
+            # Reset data and timer, restart updates
+            self.data[title] = [deque(maxlen=buffer_size), deque(maxlen=buffer_size)]
+            self.elapsed_timers[title].restart()
+            self.interval_timers[title].start()
+            self.start_stop_buttons[title].setText(f"Stop {title}")
+            self.start_stop_buttons[title].setStyleSheet("background-color: red;")
+            self.running_state[title] = True
+    
+    def save_data(self, title):
+        print(f"Pretend I saved data for: {title}")
+        
+    # Show the window and start the event loop
     def run(self):
+        self.main_window.show()
         sys.exit(self.app.exec_())
 
-# Entry point of the script
+# Script entry point
 if __name__ == '__main__':
-    # Create an instance of the live plotter
-    plotter = LivePlotter("Test Live Plotter Window")
+    plotter = LivePlotter("Test Live Plotter", plots_per_row=4)
 
-    #amount of time on a plot is measured by interval * buffer_size
+    # Add two plots with data update intervals
+    plotter.add_plot(title='Vessel Pressure', x_axis=('Time', 's'), y_axis=('Pressure', 'kPa'), buffer_size=100)
+    plotter.start_timer(title='Vessel Pressure', interval_ms=100)
 
-    plotter.add_plot('Vessel Pressure', ('Time', 's'), ('Pressure','kPa'), buffer_size=100)
-    plotter.start_timer('Vessel Pressure', interval_ms=100)
+    plotter.add_plot(title='VMM Temperature', x_axis=('Time', 's'), y_axis=('Temperature', '°C'), buffer_size=100)
+    plotter.start_timer(title='VMM Temperature', interval_ms=100)
 
-    plotter.add_plot('VMM Temperature', ('Time', 's'), ('Temperature','°C'), buffer_size=100)
-    plotter.start_timer('VMM Temperature', interval_ms=100)
-
-    # Run the GUI
+    # Launch the application
     plotter.run()
