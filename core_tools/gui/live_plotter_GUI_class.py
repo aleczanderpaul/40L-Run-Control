@@ -88,7 +88,7 @@ class LivePlotter:
         container_widget.setLayout(container)
         self.grid_layout.addWidget(container_widget, row, col)
 
-    # Update function: appends a new random data point and refreshes the plot
+    # Update function: fetches data from CSV and updates the plot
     def update(self, title):
         x_data, y_data, buffer_size = self.data[title]["x"], self.data[title]["y"], self.data[title]["buffer_size"]
         csv_filepath = self.csv_filepath[title]
