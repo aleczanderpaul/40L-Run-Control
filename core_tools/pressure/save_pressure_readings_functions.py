@@ -1,7 +1,7 @@
 import time
 import csv
 import os
-from pressure_sensor_serial_class import PressureSensorSerial
+from .pressure_sensor_serial_class import PressureSensorSerial
 
 '''Functions to handle pressure readings and log them to a CSV file'''
 
@@ -16,17 +16,17 @@ def get_pressure_readings(sensor):
     return convert_str_to_float(gauge1), convert_str_to_float(gauge2), units
 
 # Creates a new CSV file with a header row if it doesn't already exist
-def create_csv_log_file(filename):
-    if not os.path.exists(filename):  # Check if the file already exists
-        with open(filename, mode='w', newline='') as file:  # Open in write mode
+def create_pressure_log_csv(filepath):
+    if not os.path.exists(filepath):  # Check if the file already exists
+        with open(filepath, mode='w', newline='') as file:  # Open in write mode
             writer = csv.writer(file)
             writer.writerow(['Time', 'Gauge 1', 'Gauge 2', 'Units'])  # Write column headers
 
 #Logs pressure readings to CSV at regular intervals indefinitely or for a set duration
-def log_pressure_to_csv(sensor, filename, interval_sec, duration_sec=None): #None by default means run indefinitely unless specified
+def log_pressure_to_csv(sensor, filepath, interval_sec, duration_sec=None): #None by default means run indefinitely unless specified
     start_time = time.time()
 
-    with open(filename, mode='a', newline='') as file:  # Open in append mode
+    with open(filepath, mode='a', newline='') as file:  # Open in append mode
         writer = csv.writer(file)
 
         while duration_sec is None or time.time() - start_time < duration_sec:  # Loop indefinitely or keep looping until time is up
@@ -43,9 +43,9 @@ def log_pressure_to_csv(sensor, filename, interval_sec, duration_sec=None): #Non
 
 # Example usage
 if __name__ == '__main__':
-    log_filename = '40L Run Control/pressure_log.csv'  # CSV log file path
+    log_filepath = '40L_run_control/pressure_log.csv'  # CSV log file path
 
-    create_csv_log_file(log_filename)  # Ensure the file exists and has a header
+    create_pressure_log_csv(log_filepath)  # Ensure the file exists and has a header
 
     pressureSensor = PressureSensorSerial('COM4')  # Initialize sensor on COM4
-    log_pressure_to_csv(pressureSensor, log_filename, interval_sec=2)  # Start logging
+    log_pressure_to_csv(pressureSensor, log_filepath, interval_sec=2)  # Start logging

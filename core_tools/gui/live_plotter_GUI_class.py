@@ -3,12 +3,13 @@ import pyqtgraph as pg
 import numpy as np
 import sys
 import pandas as pd
-from get_data_for_GUI import get_n_XY_datapoints
+from .get_data_for_GUI import get_n_XY_datapoints
 import subprocess
 import shlex
 import platform
 
-# Class to handle live plotting with individual start/stop buttons under each plot
+'''Class to handle live plotting and add various controls/buttons in a Qt GUI application.'''
+
 class LivePlotter:
     def __init__(self, win_title, plots_per_row):
         # Create the main Qt application
@@ -26,7 +27,7 @@ class LivePlotter:
         self.grid_layout = QtWidgets.QGridLayout()
         self.main_layout.addLayout(self.grid_layout)
 
-        # Internal state tracking
+        # Internal state tracking for plots
         self.plot_count = 0                       # How many plots have been added
         self.plots_per_row = plots_per_row        # How many plots per row
         self.data = {}                            # title -> {x: pandas Series, y: pandas Series, buffer_size: int}
@@ -38,8 +39,13 @@ class LivePlotter:
         self.csv_filepath = {}                    # title -> CSV filepath from logging to pull data from
         self.datatype = {}                        # Datatype for the plots (e.g., 'pressure', 'temperature')
 
+        #Internal state tracking for command buttons
+        self.cmd_buttons = {}                     # title -> QPushButton for terminal commands
+        self.cmd_processes = {}                   # title -> subprocess.Popen object for running commands
+        self.cmd_running_state = {}               # title -> bool: is command running
+
     # Add a new plot with button below it
-    def add_plot(self, title, x_axis, y_axis, buffer_size, csv_filepath, datatype):
+    def add_plot(self, title, x_axis, y_axis, buffer_size, csv_filepath, datatype): #x_axis and y_axis are tuples of (label, unit), and buffer_size is the number of data points to display at once
         # Determine position in the grid layout
         row = self.plot_count // self.plots_per_row
         col = self.plot_count % self.plots_per_row
@@ -102,7 +108,7 @@ class LivePlotter:
         timer.start(interval_ms)
         self.interval_timers[title] = timer
 
-        # Start a timer to track elapsed time for the X-axis
+        # Start a timer to track elapsed time
         elapsed = QtCore.QElapsedTimer()
         elapsed.start()
         self.elapsed_timers[title] = elapsed
@@ -128,19 +134,54 @@ class LivePlotter:
             self.running_state[title] = True
 
     #Run a terminal command using subprocess
-    def run_terminal_command(self, command):
+    def run_terminal_command(self, title, command):
         system = platform.system()
 
-        # Use shlex.split to safely split the command respecting shell syntax
-        cmd_parts = shlex.split(command)
-
         if system == 'Windows':
-            subprocess.run(cmd_parts, check=True, shell=True)
+            #Use shlex.split to safely split the command respecting shell syntax
+            cmd_parts = shlex.split(command, posix=False)  # Use posix=False for Windows compatibility
+            process = subprocess.Popen(cmd_parts, shell=True) #Use shell=True for Windows to handle commands correctly
         else:
-            subprocess.run(cmd_parts, check=True)
+            cmd_parts = shlex.split(command)
+            process = subprocess.Popen(cmd_parts)
+        
+        self.cmd_processes[title] = process
     
+    #Terminate a running terminal command
+    def stop_terminal_command(self, title):
+        process = self.cmd_processes[title]
+
+        #Check if the process is still running and terminate it
+        if process and process.poll() is None:
+            system = platform.system()
+            if system == 'Windows':
+                subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'], check=True)
+            else:
+                process.kill()
+    
+    #Handle button click for starting/stopping terminal commands
+    def cmd_button_clicked(self, title, command):
+        if self.cmd_running_state[title]:
+            # If the command is running, stop it
+            self.stop_terminal_command(title)
+
+            cmd_button = self.cmd_buttons[title]
+            cmd_button.setText(f'Start {title}')
+            cmd_button.setStyleSheet("background-color: green;")
+
+            self.cmd_running_state[title] = False
+        else:
+            # If the command is not running, start it
+            self.run_terminal_command(title, command)
+
+            cmd_button = self.cmd_buttons[title]
+            cmd_button.setText(f'Stop {title}')
+            cmd_button.setStyleSheet("background-color: red;")
+
+            self.cmd_running_state[title] = True
+        
     # Add a button that runs a terminal command on click
-    def add_command_button(self, command, button_text, bkg_color):
+    def add_command_button(self, title, command):
         # Determine position in the grid layout
         row = self.plot_count // self.plots_per_row
         col = self.plot_count % self.plots_per_row
@@ -150,17 +191,39 @@ class LivePlotter:
         container = QtWidgets.QVBoxLayout()
 
         # Create button
-        command_button = QtWidgets.QPushButton(button_text)
-        command_button.setStyleSheet(f"background-color: {bkg_color};")
-        command_button.clicked.connect(lambda _, cmd=command: self.run_terminal_command(cmd))
+        cmd_button = QtWidgets.QPushButton(f'Start {title}')
+        cmd_button.setStyleSheet(f"background-color: green;")
+        cmd_button.clicked.connect(lambda _, cmd=command, t=title: self.cmd_button_clicked(t, cmd))
+        self.cmd_buttons[title] = cmd_button
 
         # Add button to vertical container
-        container.addWidget(command_button)
+        container.addWidget(cmd_button)
 
         # Wrap the layout in a QWidget and add it to the grid
         container_widget = QtWidgets.QWidget()
         container_widget.setLayout(container)
         self.grid_layout.addWidget(container_widget, row, col)
+
+        # Mark the command as not running
+        self.cmd_running_state[title] = False
+    
+    # Check the status of all command processes and update button states
+    def check_command_status(self):
+        for title in self.cmd_processes:
+            process = self.cmd_processes[title]
+            if process.poll() is not None:
+                # Process has finished, update button state
+                cmd_button = self.cmd_buttons[title]
+                cmd_button.setText(f'Start {title}')
+                cmd_button.setStyleSheet("background-color: green;")
+                self.cmd_running_state[title] = False
+    
+    def cmd_timer(self, interval_ms):
+        # Create a timer to check command status on a regular interval
+        timer = QtCore.QTimer()
+        timer.timeout.connect(lambda: self.check_command_status())
+        timer.start(interval_ms)
+        self.interval_timers['cmd_timer'] = timer #Store primarily to prevent garbage collection
 
     # Show the window and start the event loop
     def run(self):
@@ -172,14 +235,16 @@ if __name__ == '__main__':
     plotter = LivePlotter("Test Live Plotter", plots_per_row=2)
 
     # Add plots with data update intervals
-    plotter.add_plot(title='Vessel Pressure', x_axis=('Time', 's'), y_axis=('Pressure', 'Pa'), buffer_size=100, csv_filepath='40L Run Control\pressure_log copy.csv', datatype='pressure')
+    plotter.add_plot(title='Vessel Pressure', x_axis=('Time', 's'), y_axis=('Pressure', 'Pa'), buffer_size=100, csv_filepath='40L_run_control\pressure_log_copy.csv', datatype='pressure')
     plotter.start_timer(title='Vessel Pressure', interval_ms=1000)
 
-    plotter.add_plot(title='Vessel Pressure 2', x_axis=('Time', 's'), y_axis=('Pressure', 'Pa'), buffer_size=100, csv_filepath='40L Run Control\pressure_log copy 2.csv', datatype='pressure')
+    plotter.add_plot(title='Vessel Pressure 2', x_axis=('Time', 's'), y_axis=('Pressure', 'Pa'), buffer_size=100, csv_filepath='40L_run_control\pressure_log_copy_2.csv', datatype='pressure')
     plotter.start_timer(title='Vessel Pressure 2', interval_ms=1000)
 
-    plotter.add_command_button('dir', 'dir', 'white') #these commands only work on Windows, command can be edited for other OS
-    plotter.add_command_button('dir', 'dir', 'white')
+    plotter.add_command_button(title='timeout 1', command='timeout /T 10')
+    plotter.add_command_button('dir2', 'dir', 'dir')
+
+    plotter.cmd_timer(500)  # Start the command status checking timer
 
 
     # Launch the application

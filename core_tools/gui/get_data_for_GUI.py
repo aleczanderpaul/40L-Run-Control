@@ -2,6 +2,7 @@ import pandas as pd
 from datetime import datetime
 import numpy as np
 
+'''This module provides functions to read data from a CSV file and process it for GUI display.'''
 
 def count_lines(csv_filepath):
     # Open the file in binary mode ('rb') for efficient line counting
