@@ -44,6 +44,9 @@ class LivePlotter:
         self.cmd_processes = {}                   # title -> subprocess.Popen object for running commands
         self.cmd_running_state = {}               # title -> bool: is command running
 
+        #Calls the clanup function when the application is about to quit so that all running subprocesses are terminated
+        self.app.aboutToQuit.connect(self.cleanup)
+
     # Add a new plot with button below it
     def add_plot(self, title, x_axis, y_axis, buffer_size, csv_filepath, datatype): #x_axis and y_axis are tuples of (label, unit), and buffer_size is the number of data points to display at once
         # Determine position in the grid layout
@@ -224,6 +227,13 @@ class LivePlotter:
         timer.timeout.connect(lambda: self.check_command_status())
         timer.start(interval_ms)
         self.interval_timers['cmd_timer'] = timer #Store primarily to prevent garbage collection
+    
+    # End all running subprocesses
+    def cleanup(self):
+        for title in self.cmd_processes:
+            process = self.cmd_processes[title]
+            if process.poll() is None:
+                self.stop_terminal_command(title)
 
     # Show the window and start the event loop
     def run(self):
