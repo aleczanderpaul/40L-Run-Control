@@ -87,6 +87,10 @@ Creates an interval timer that calls check_command_status. This function should 
 
 interval_ms is an int that specifies the length of the interval timer that calls the check_command_status function.
 
+### cleanup()
+
+Terminates all the running subprocesses the GUI started (e.g., logging pressure script). Is called when the user exits the GUI.
+
 ### run()
 
 Shows the window and starts the event loop. Call this after all the widgets have been added to the window.
