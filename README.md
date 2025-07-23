@@ -11,6 +11,7 @@ A script to launch the run control GUI. The widgets (plots, buttons, etc.) to di
 A script that connects to an MKS PDR 2000 (pressure sensor that uses RS-232 Serial protocol) and writes the pressure to a CSV file at a specified interval indefinitely or for a limited duration.
 
 To run script, use format: python3 <log_pressure.py filepath> <log_filepath (make sure to add .csv)> <serial_port> <interval_sec> <duration_sec (optional, leave empty for indefinite)>
+
 If using venv, use format: .venv\Scripts\python.exe <log_pressure.py filepath> <log_filepath (make sure to add .csv)> <serial_port> <interval_sec> <duration_sec (optional, leave empty for indefinite)>
 
 While technically the user can create the CSV file manually and the script will skip making one if it already exists, it is highly recommended that the user lets the script make the file, as it will make the headers for each column correctly for the GUI to read from.
