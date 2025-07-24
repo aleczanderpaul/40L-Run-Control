@@ -24,6 +24,7 @@ class PressureSensorSerial:
         time.sleep(1)  # Wait 1 second for the serial port and device to initialize
 
     def read_pressure(self):
+        self.ser.reset_input_buffer()  # Clear any leftover bytes from previous reads or sensor noise
         # Send the 'p' command to the sensor to request pressure readings
         # ASCII 'p' corresponds to byte 112, sent as b'p'
         self.ser.write(b'p')
@@ -31,35 +32,49 @@ class PressureSensorSerial:
         
         # Read one line from the serial port, decode from bytes to string
         response = self.ser.readline().decode('utf-8').strip()
-        
-        # Split the response into two values (assuming the sensor returns
-        # two pressure gauge readings separated by spaces)
-        gauge1, gauge2 = response.split()
+
+        try:
+        # Attempt to split the response into gauge 1 and gauge 2 values
+            gauge1, gauge2 = response.split()
+        except Exception:
+            # If anything goes wrong, set both to 'Off'
+            gauge1, gauge2 = 'Off', 'Off'
         
         # Return the two pressure readings as strings
         return gauge1, gauge2
 
     def read_units(self):
+        self.ser.reset_input_buffer()  # Clear any leftover bytes from previous reads or sensor noise
         # Send the 'u' command to request the units of pressure (e.g., "Torr", "mbar", "Pascal")
         self.ser.write(b'u')
         time.sleep(0.1)  # Wait for response
         
         # Read one line from the serial port, decode from bytes to string
         units = self.ser.readline().decode('utf-8').strip()
+
+        if units != 'Pascal' and units != 'Torr' and units != 'Bar' and units != 'Arb':
+            units = 'Off'
+        else:
+            pass
         
         # Return the units string
         return units
 
     def read_full_scale(self):
+        self.ser.reset_input_buffer()  # Clear any leftover bytes from previous reads or sensor noise
         # Send the 'f' command to get the full scale range of the sensor
         self.ser.write(b'f')
         time.sleep(0.1)  # Wait for sensor response
         
         # Read one line from the serial port, decode from bytes to string
         response = self.ser.readline().decode('utf-8').strip()
-        
-        # Split the response into low and high range values
-        low_range, high_range = response.split()
+
+        try:
+        # Attempt to split the response into low and high range values
+            low_range, high_range = response.split()
+        except Exception:
+            # If anything goes wrong, set both to 'Off'
+            low_range, high_range = 'Off', 'Off'
         
         # Return the full scale range as strings
         return low_range, high_range
