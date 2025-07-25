@@ -7,14 +7,25 @@ from core_tools.pressure.save_pressure_readings_functions import create_pressure
 #The widgets (plots, buttons, etc.) are added to the GUI window in the order they are written here and fill from left to right, top to bottom.
 #For more infromation on how to use the LivePlotter class, see GitHub readme file or the source code at core_tools/gui/live_plotter_GUI_class.py
 
-plotter = LivePlotter("Test Live Plotter", plots_per_row=1)
+plotter = LivePlotter("Test Live Plotter")
 
 pressure_log_filepath = '40L_run_control/pressure_log_07_23_25.csv'
 create_pressure_log_csv(pressure_log_filepath)
-plotter.add_plot(title='Plot Vessel Pressure', x_axis=('Time since present', 's'), y_axis=('Pressure', 'Torr'), buffer_size=100, csv_filepath=pressure_log_filepath, datatype='pressure')
+plotter.create_tab(tab_name='Pressure', plots_per_row=1)
+plotter.create_tab(tab_name='Temperature', plots_per_row=4)
+plotter.add_plot(title='Plot Vessel Pressure', x_axis=('Time since present', 's'), y_axis=('Pressure', 'Torr'), buffer_size=100, csv_filepath=pressure_log_filepath, datatype='pressure', tab_name='Pressure')
 plotter.start_timer(title='Plot Vessel Pressure', interval_ms=1000)
 
-plotter.add_command_button(title='Log Vessel Pressure', command=f'.venv\Scripts\python.exe 40L_run_control/log_pressure.py {pressure_log_filepath} COM4 2')
+plotter.add_plot(title='Plot VMM 1 Temperature', x_axis=('Time since present', 's'), y_axis=('Temperature', 'deg C'), buffer_size=100, csv_filepath=pressure_log_filepath, datatype='pressure', tab_name='Temperature')
+plotter.start_timer(title='Plot VMM 1 Temperature', interval_ms=1000)
+
+plotter.add_plot(title='Plot VMM 2 Temperature', x_axis=('Time since present', 's'), y_axis=('Temperature', 'deg C'), buffer_size=100, csv_filepath=pressure_log_filepath, datatype='pressure', tab_name='Temperature')
+plotter.start_timer(title='Plot VMM 2 Temperature', interval_ms=1000)
+
+plotter.add_plot(title='Plot VMM 3 Temperature', x_axis=('Time since present', 's'), y_axis=('Temperature', 'deg C'), buffer_size=100, csv_filepath=pressure_log_filepath, datatype='pressure', tab_name='Temperature')
+plotter.start_timer(title='Plot VMM 3 Temperature', interval_ms=1000)
+
+plotter.add_command_button(title='Log Vessel Pressure', command=f'.venv\Scripts\python.exe 40L_run_control/log_pressure.py {pressure_log_filepath} COM4 2', tab_name='Pressure')
 plotter.cmd_timer(500)
 
 plotter.run()
