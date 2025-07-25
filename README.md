@@ -64,7 +64,7 @@ Starts the interval timer to drive plot updates and the elapsed timer. Run this 
 
 interval_ms is an int that specifies the length of the interval timer that calls the update function.
 
-### toggle_plot(title, buffer_size)
+### toggle_plot(title)
 
 Handles the start/stop button for each plot. Changes color, text, and state of the timers when button is pressed.
 
