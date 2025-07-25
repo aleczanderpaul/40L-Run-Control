@@ -28,7 +28,15 @@ All the functions inside the class are explained below, but the only ones that s
 
 Source code is located at core_tools/gui/live_plotter_GUI_class.py.
 
-### add_plot(title, x_axis, y_axis, buffer_size, csv_filepath, datatype)
+### create_tab(tab_name, plots_per_row)
+
+Creates a "tab" inside the GUI window for the user to switch between. Helps organize different sets of plots instead of all on the same page all the time.
+
+tab_name is a string that tells the GUI what to name the tab. Plays a similar row to titles in this class, except it tells the GUI which tab to put the plot or button in.
+
+plots_per_row is an int that tells the GUI how many plots to put into each row before moving onto the next one, can vary this number for each tab.
+
+### add_plot(title, x_axis, y_axis, buffer_size, csv_filepath, datatype, tab_name)
 
 Adds a plot to the window and a button that will start/stop automatic updates to the plot. Data is pulled from a CSV file, so the CSV must exist before this function is called, even if it is empty. It is highly recommended to use log_pressure.py and log_temperature.py to create the CSV's, not manually.
 
@@ -39,6 +47,8 @@ buffer_size is an int and represents the number of data points the plot will dis
 csv_filepath is a string of the filepath to the CSV the plot will pull data from.
 
 datatype is a string that tells the GUI what is being plotted so it knows how to get the relevant x and y data. For example, datatype='pressure' tells the GUI to plot pressure from the MKS PDR 2000 vs how many seconds ago the data was taken. The current supported datatypes are found in core_tools/gui/get_data_for_GUI.py inside the get_n_XY_datapoints function.
+
+tab_name is a string that tells the GUI which tab to put the plot in.
 
 ### update(title)
 
@@ -72,11 +82,13 @@ Terminates a running command, to be used in conjunction with a button. Works for
 
 Similar to toggle_plot, but handles the buttons that execute terminal commands instead of starting/stopping plot updates.
 
-### add_command_button(title, command)
+### add_command_button(title, command, tab_name)
 
 Adds a button that runs a terminal command on click.
 
 command is a string of the command to be run.
+
+tab_name is a string that tells the GUI which tab to put the button in.
 
 ### check_command_status()
 
