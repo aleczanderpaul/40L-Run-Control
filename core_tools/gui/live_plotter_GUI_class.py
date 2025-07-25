@@ -96,7 +96,7 @@ class LivePlotter:
         # Create the start/stop button
         start_stop_button = QtWidgets.QPushButton(f"Stop {title}")
         start_stop_button.setStyleSheet("background-color: red;")
-        start_stop_button.clicked.connect(lambda _, t=title: self.toggle_plot(t, buffer_size))
+        start_stop_button.clicked.connect(lambda _, t=title: self.toggle_plot(t))
         self.start_stop_buttons[title] = start_stop_button
 
         # Add plot and button to vertical container
@@ -137,7 +137,7 @@ class LivePlotter:
         self.running_state[title] = True
 
     # Toggle between start and stop for a given plot
-    def toggle_plot(self, title, buffer_size):
+    def toggle_plot(self, title):
         if self.running_state[title]:
             # Stop the timer and update the button text
             self.interval_timers[title].stop()
@@ -146,6 +146,7 @@ class LivePlotter:
             self.running_state[title] = False
         else:
             # Reset data and timer, restart updates
+            buffer_size = self.data[title]["buffer_size"]
             self.data[title] = {"x": pd.Series(np.full(buffer_size, np.nan), name='x'), "y": pd.Series(np.full(buffer_size, np.nan), name='y'), "buffer_size": buffer_size}
             self.elapsed_timers[title].restart()
             self.interval_timers[title].start()

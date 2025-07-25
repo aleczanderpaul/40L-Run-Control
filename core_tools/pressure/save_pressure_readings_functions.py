@@ -36,7 +36,7 @@ def log_pressure_to_csv(sensor, filepath, interval_sec, duration_sec=None): #Non
             writer.writerow([timestamp, gauge1, gauge2, units])  # Write to CSV
             file.flush()               # Flush Python’s internal buffer
             os.fsync(file.fileno())   # Force OS to flush file to disk
-            print(f"{timestamp} - Gauge1: {gauge1}, Gauge2: {gauge2}, Units: {units}")  # Console log
+            print(f"{timestamp} - Gauge1: {gauge1}, Gauge2: {gauge2}, Units: {units}")  # Console log, uncomment for debugging
             time.sleep(interval_sec)  # Wait before next reading
 
     sensor.close_port()  # Close serial connection when done

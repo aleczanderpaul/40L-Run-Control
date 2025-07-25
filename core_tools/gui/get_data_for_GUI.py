@@ -96,6 +96,12 @@ def get_pressure(dataframe):
     # Return the pressure values as a pandas Series with the same index as the input DataFrame
     return pd.Series(pressure, name='Pressure', index=dataframe.index)
 
+def get_temperature(dataframe):
+    temperature = dataframe['Temperature']
+
+    # Return the pressure values as a pandas Series with the same index as the input DataFrame
+    return pd.Series(temperature, name='Temperature', index=dataframe.index)
+
 def get_n_XY_datapoints(csv_filepath, n, datatype):
     dataframe = read_last_n_rows(csv_filepath, n)
 
@@ -104,6 +110,10 @@ def get_n_XY_datapoints(csv_filepath, n, datatype):
         times = get_seconds_ago(dataframe)
         pressures = get_pressure(dataframe)
         return times, pressures
+    elif datatype == 'temperature':
+        times = get_seconds_ago(dataframe)
+        temperature = get_temperature(dataframe)
+        return times, temperature
     else:
         # Raise an error if the datatype is not supported
-        raise ValueError(f"Unsupported datatype: {datatype}. Supported types are: 'pressure'.")
+        raise ValueError(f"Unsupported datatype: {datatype}. Supported types are: 'pressure', 'temperature'.")
