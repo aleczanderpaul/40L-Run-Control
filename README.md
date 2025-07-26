@@ -22,9 +22,9 @@ TO BE DEVELOPED
 
 ## LivePlotter class
 
-This class uses dictionaries to store and sort data, so titles are a very important concept for this class. Every widget has a title specified by the user and can be any string, but must be unique across all widgets. The title lets the GUI know where to store important processes for the widgets (e.g., plot data, timers, filepaths, etc.) so that each one can run independently, and can be accessed later.
+When called, an object of this class will launch a window that will later be filled with tabs to form a GUI.
 
-All the functions inside the class are explained below, but the only ones that should be called in launch_GUI.py are add_plot, start_timer, add_command_button, cmd_timer, and run.
+All the functions inside the class are explained below, but the only ones that should be called in launch_GUI.py are create_tab and run.
 
 Source code is located at core_tools/gui/live_plotter_GUI_class.py.
 
@@ -32,11 +32,39 @@ Source code is located at core_tools/gui/live_plotter_GUI_class.py.
 
 Creates a "tab" inside the GUI window for the user to switch between. Helps organize different sets of plots instead of all on the same page all the time.
 
-tab_name is a string that tells the GUI what to name the tab. Plays a similar row to titles in this class, except it tells the GUI which tab to put the plot or button in.
+tab_name is a string that tells the GUI what to name the tab.
 
 plots_per_row is an int that tells the GUI how many plots to put into each row before moving onto the next one, can vary this number for each tab.
 
-### add_plot(title, x_axis, y_axis, buffer_size, csv_filepath, datatype, tab_name)
+This function returns a LiveTab object, which is a class with functions described in the next section. In order to add widgets like plots and buttons to each tab, use the functions in the LiveTab class. For example:
+
+```python
+plotter = LivePlotter("Test Live Plotter")
+tab_1 = plotter.create_tab(tab_name='Test Tab', plots_per_row=1)
+tab_1.add_plot(title='Plot Vessel Pressure', x_axis=('Time since present', 's'), y_axis=('Pressure', 'Torr'), buffer_size=100, csv_filepath=pressure_log_filepath, datatype='pressure')
+```
+
+This snippet of code will create a GUI window, add a tab, and add a plot to the tab that logs pressure vs time. The specifics of the add_plot function are explained in the LiveTab class documentation.
+
+### cleanup()
+
+Terminates all the running subprocesses the GUI started (e.g., logging pressure script). Is called when the user exits the GUI.
+
+### run()
+
+Shows the window and starts the event loop. Call this after all the widgets have been added to the window.
+
+## LiveTab class
+
+When called, an object of this class will launch a tab widget inside the LivePlotter window that can be filled with other widgets like plots and buttons.
+
+This class uses dictionaries to store and sort data, so titles are a very important concept for this class. Every widget has a title specified by the user and can be any string, but must be unique across all widgets. The title lets the GUI know where to store important processes for the widgets (e.g., plot data, timers, filepaths, etc.) so that each one can run independently, and can be accessed later.
+
+All the functions inside the class are explained below, but the only ones that should be called in launch_GUI.py are add_plot, start_timer, add_command_button, and cmd_timer.
+
+Source code is located at core_tools/gui/live_plotter_GUI_class.py.
+
+### add_plot(title, x_axis, y_axis, buffer_size, csv_filepath, datatype)
 
 Adds a plot to the window and a button that will start/stop automatic updates to the plot. Data is pulled from a CSV file, so the CSV must exist before this function is called, even if it is empty. It is highly recommended to use log_pressure.py and log_temperature.py to create the CSV's, not manually.
 
@@ -47,8 +75,6 @@ buffer_size is an int and represents the number of data points the plot will dis
 csv_filepath is a string of the filepath to the CSV the plot will pull data from.
 
 datatype is a string that tells the GUI what is being plotted so it knows how to get the relevant x and y data. For example, datatype='pressure' tells the GUI to plot pressure from the MKS PDR 2000 vs how many seconds ago the data was taken. The current supported datatypes are found in core_tools/gui/get_data_for_GUI.py inside the get_n_XY_datapoints function.
-
-tab_name is a string that tells the GUI which tab to put the plot in.
 
 ### update(title)
 
@@ -82,13 +108,11 @@ Terminates a running command, to be used in conjunction with a button. Works for
 
 Similar to toggle_plot, but handles the buttons that execute terminal commands instead of starting/stopping plot updates.
 
-### add_command_button(title, command, tab_name)
+### add_command_button(title, command)
 
 Adds a button that runs a terminal command on click.
 
 command is a string of the command to be run.
-
-tab_name is a string that tells the GUI which tab to put the button in.
 
 ### check_command_status()
 
@@ -102,8 +126,4 @@ interval_ms is an int that specifies the length of the interval timer that calls
 
 ### cleanup()
 
-Terminates all the running subprocesses the GUI started (e.g., logging pressure script). Is called when the user exits the GUI.
-
-### run()
-
-Shows the window and starts the event loop. Call this after all the widgets have been added to the window.
+Terminates all the running subprocesses the tab widget started (e.g., logging pressure script). Is called by LivePlotter object when window is closed.
