@@ -27,11 +27,37 @@ class LivePlotter:
         self.tabs = QtWidgets.QTabWidget()
         self.main_layout.addWidget(self.tabs)
 
-        # Keep track of layouts for each tab
-        self.tab_layouts = {}  # tab_name -> QGridLayout
-        self.tab_widgets = {}  # tab_name -> QWidget
-        self.plot_counts = {}  # tab_name -> count of widgets added to that tab
-        self.plots_per_row = {} #tab_name -> plots in each row allowed before moving to next
+        self.tab_objects = {}  # tab_name -> LiveTab object
+
+        #Calls the clanup function when the application is about to quit so that all running subprocesses are terminated
+        self.app.aboutToQuit.connect(self.cleanup)
+
+    #Create a tab in the window to put plots and buttons in
+    def create_tab(self, tab_name, plots_per_row):
+        tab = LiveTab(plots_per_row)
+        self.tab_objects[tab_name] = tab
+        self.tabs.addTab(tab, tab_name)
+        return tab
+
+    #Call cleanup function for each tab to end all running subprocesses
+    def cleanup(self):
+        for tab_name in self.tab_objects:
+            self.tab_objects[tab_name].cleanup()
+    
+    # Show the window and start the event loop
+    def run(self):
+        self.main_window.show()
+        sys.exit(self.app.exec_())
+
+class LiveTab(QtWidgets.QWidget):
+    def __init__(self, plots_per_row):
+        super().__init__() # Call the constructor of the parent class (QWidget) to properly initialize the widget. This class is now a custom QTWidget
+
+        self.layout = QtWidgets.QGridLayout() ## Create a grid layout manager to arrange child widgets (plots, buttons) in a grid format.
+        self.setLayout(self.layout)
+
+        self.plots_per_row = plots_per_row
+        self.plot_counts = 0
 
         # Internal state tracking for plots
         self.data = {}                            # title -> {x: pandas Series, y: pandas Series, buffer_size: int}
@@ -47,27 +73,12 @@ class LivePlotter:
         self.cmd_buttons = {}                     # title -> QPushButton for terminal commands
         self.cmd_processes = {}                   # title -> subprocess.Popen object for running commands
         self.cmd_running_state = {}               # title -> bool: is command running
-
-        #Calls the clanup function when the application is about to quit so that all running subprocesses are terminated
-        self.app.aboutToQuit.connect(self.cleanup)
-
-    #Create a tab in the window to put plots and buttons in
-    def create_tab(self, tab_name, plots_per_row):
-        tab_widget = QtWidgets.QWidget()
-        layout = QtWidgets.QGridLayout()
-        tab_widget.setLayout(layout)
-        self.tabs.addTab(tab_widget, tab_name)
-        self.tab_layouts[tab_name] = layout
-        self.tab_widgets[tab_name] = tab_widget
-        self.plots_per_row[tab_name] = plots_per_row
-        self.plot_counts[tab_name] = 0
     
     # Add a new plot with button below it
-    def add_plot(self, title, x_axis, y_axis, buffer_size, csv_filepath, datatype, tab_name): #x_axis and y_axis are tuples of (label, unit), and buffer_size is the number of data points to display at once
-        layout = self.tab_layouts[tab_name]
-        index = self.plot_counts[tab_name]
-        plots_per_row = self.plots_per_row[tab_name]
-        self.plot_counts[tab_name] += 1
+    def add_plot(self, title, x_axis, y_axis, buffer_size, csv_filepath, datatype): #x_axis and y_axis are tuples of (label, unit), and buffer_size is the number of data points to display at once
+        index = self.plot_counts
+        plots_per_row = self.plots_per_row
+        self.plot_counts += 1
         row = index // plots_per_row
         col = index % plots_per_row
 
@@ -106,7 +117,7 @@ class LivePlotter:
         # Wrap the layout in a QWidget and add it to the grid
         container_widget = QtWidgets.QWidget()
         container_widget.setLayout(container)
-        layout.addWidget(container_widget, row, col)
+        self.layout.addWidget(container_widget, row, col)
 
     # Update function: fetches data from CSV and updates the plot
     def update(self, title):
@@ -202,11 +213,10 @@ class LivePlotter:
             self.cmd_running_state[title] = True
         
     # Add a button that runs a terminal command on click
-    def add_command_button(self, title, command, tab_name):
-        layout = self.tab_layouts[tab_name]
-        index = self.plot_counts[tab_name]
-        plots_per_row = self.plots_per_row[tab_name]
-        self.plot_counts[tab_name] += 1
+    def add_command_button(self, title, command):
+        index = self.plot_counts
+        plots_per_row = self.plots_per_row
+        self.plot_counts += 1
         row = index // plots_per_row
         col = index % plots_per_row
 
@@ -225,7 +235,7 @@ class LivePlotter:
         # Wrap the layout in a QWidget and add it to the grid
         container_widget = QtWidgets.QWidget()
         container_widget.setLayout(container)
-        layout.addWidget(container_widget, row, col)
+        self.layout.addWidget(container_widget, row, col)
 
         # Mark the command as not running
         self.cmd_running_state[title] = False
@@ -254,11 +264,7 @@ class LivePlotter:
             process = self.cmd_processes[title]
             if process.poll() is None:
                 self.stop_terminal_command(title)
-
-    # Show the window and start the event loop
-    def run(self):
-        self.main_window.show()
-        sys.exit(self.app.exec_())
+        
 
 # Example usage
 if __name__ == '__main__':
@@ -268,21 +274,26 @@ if __name__ == '__main__':
 
     #create_pressure_log_csv(pressure_log_filepath) this file doesnt see create_pressure_log function, but launch_GUI.py does
 
-    plotter.create_tab(tab_name='Pressure', plots_per_row=1)
-    plotter.create_tab(tab_name='Temperature', plots_per_row=4)
-    plotter.add_plot(title='Plot Vessel Pressure', x_axis=('Time since present', 's'), y_axis=('Pressure', 'Torr'), buffer_size=100, csv_filepath=pressure_log_filepath, datatype='pressure', tab_name='Pressure')
-    plotter.start_timer(title='Plot Vessel Pressure', interval_ms=1000)
+    pressure_tab = plotter.create_tab(tab_name='Pressure', plots_per_row=1)
+    temp_tab = plotter.create_tab(tab_name='Temperature', plots_per_row=4)
 
-    plotter.add_plot(title='Plot VMM 1 Temperature', x_axis=('Time since present', 's'), y_axis=('Temperature', 'deg C'), buffer_size=100, csv_filepath=pressure_log_filepath, datatype='pressure', tab_name='Temperature')
-    plotter.start_timer(title='Plot VMM 1 Temperature', interval_ms=1000)
+    pressure_tab.add_plot(title='Plot Vessel Pressure', x_axis=('Time since present', 's'), y_axis=('Pressure', 'Torr'), buffer_size=100, csv_filepath=pressure_log_filepath, datatype='pressure')
+    pressure_tab.start_timer(title='Plot Vessel Pressure', interval_ms=1000)
 
-    plotter.add_plot(title='Plot VMM 2 Temperature', x_axis=('Time since present', 's'), y_axis=('Temperature', 'deg C'), buffer_size=100, csv_filepath=pressure_log_filepath, datatype='pressure', tab_name='Temperature')
-    plotter.start_timer(title='Plot VMM 2 Temperature', interval_ms=1000)
+    pressure_tab.add_command_button(title='Log Vessel Pressure', command=f'.venv\Scripts\python.exe 40L_run_control/log_pressure.py {pressure_log_filepath} COM4 2')
+    pressure_tab.add_command_button(title='test', command=f'timeout /T 10')
+    pressure_tab.cmd_timer(500)
 
-    plotter.add_plot(title='Plot VMM 3 Temperature', x_axis=('Time since present', 's'), y_axis=('Temperature', 'deg C'), buffer_size=100, csv_filepath=pressure_log_filepath, datatype='pressure', tab_name='Temperature')
-    plotter.start_timer(title='Plot VMM 3 Temperature', interval_ms=1000)
+    temp_tab.add_plot(title='Plot VMM 1 Temperature', x_axis=('Time since present', 's'), y_axis=('Temperature', 'deg C'), buffer_size=100, csv_filepath=pressure_log_filepath, datatype='pressure')
+    temp_tab.start_timer(title='Plot VMM 1 Temperature', interval_ms=1000)
 
-    plotter.add_command_button(title='Log Vessel Pressure', command=f'.venv\Scripts\python.exe 40L_run_control/log_pressure.py {pressure_log_filepath} COM4 2', tab_name='Pressure')
-    plotter.cmd_timer(500)
+    temp_tab.add_plot(title='Plot VMM 2 Temperature', x_axis=('Time since present', 's'), y_axis=('Temperature', 'deg C'), buffer_size=100, csv_filepath=pressure_log_filepath, datatype='pressure')
+    temp_tab.start_timer(title='Plot VMM 2 Temperature', interval_ms=1000)
+
+    temp_tab.add_plot(title='Plot VMM 3 Temperature', x_axis=('Time since present', 's'), y_axis=('Temperature', 'deg C'), buffer_size=100, csv_filepath=pressure_log_filepath, datatype='pressure')
+    temp_tab.start_timer(title='Plot VMM 3 Temperature', interval_ms=1000)
+
+    temp_tab.add_command_button(title='test', command=f'timeout /T 10')
+    temp_tab.cmd_timer(500)
 
     plotter.run()
