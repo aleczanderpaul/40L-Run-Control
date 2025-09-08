@@ -73,6 +73,12 @@ class LiveTab(QtWidgets.QWidget):
         self.cmd_buttons = {}                     # title -> QPushButton for terminal commands
         self.cmd_processes = {}                   # title -> subprocess.Popen object for running commands
         self.cmd_running_state = {}               # title -> bool: is command running
+        self.cmd_command_strings = {}             # title -> command string (useful if we want to change command on the fly)
+
+        #Internal state tracking for dropdown menus
+        self.dd_menus = {}                        # title ->
+        self.dd_option_names = {}                 # title ->
+        self.dd_option_values = {}                 # title ->
     
     # Add a new plot with button below it
     def add_plot(self, title, x_axis, y_axis, buffer_size, csv_filepath, datatype): #x_axis and y_axis are tuples of (label, unit), and buffer_size is the number of data points to display at once
@@ -192,7 +198,8 @@ class LiveTab(QtWidgets.QWidget):
                 process.kill()
     
     #Handle button click for starting/stopping terminal commands
-    def cmd_button_clicked(self, title, command):
+    def cmd_button_clicked(self, title):
+        command = self.cmd_command_strings[title] #this method allows us to dynamically change the command if necessary
         if self.cmd_running_state[title]:
             # If the command is running, stop it
             self.stop_terminal_command(title)
@@ -226,7 +233,8 @@ class LiveTab(QtWidgets.QWidget):
         # Create button
         cmd_button = QtWidgets.QPushButton(f'Start {title}')
         cmd_button.setStyleSheet(f"background-color: green;")
-        cmd_button.clicked.connect(lambda _, cmd=command, t=title: self.cmd_button_clicked(t, cmd))
+        self.cmd_command_strings[title] = command
+        cmd_button.clicked.connect(lambda _, t=title: self.cmd_button_clicked(t))
         self.cmd_buttons[title] = cmd_button
 
         # Add button to vertical container
@@ -257,6 +265,67 @@ class LiveTab(QtWidgets.QWidget):
         timer.timeout.connect(lambda: self.check_command_status())
         timer.start(interval_ms)
         self.interval_timers['cmd_timer'] = timer #Store primarily to prevent garbage collection
+    
+    #Add a dropdown menu with specified options and values attached to the options
+    def add_dropdown_menu(self, title, option_names, option_values, cmd_button_title=None, on_change_callback=None):
+        index = self.plot_counts
+        plots_per_row = self.plots_per_row
+        self.plot_counts += 1
+        row = index // plots_per_row
+        col = index % plots_per_row
+
+        # Vertical layout to hold the plot and button
+        container = QtWidgets.QVBoxLayout()
+
+        # Label
+        label = QtWidgets.QLabel(title)
+        container.addWidget(label)
+
+        # Dropdown (QComboBox)
+        dropdown_box = QtWidgets.QComboBox()
+        for i in range(len(option_names)):
+            dropdown_box.addItem(option_names[i], userData=option_values[i])
+        self.dd_menus[title] = dropdown_box
+        self.dd_option_names[title] = option_names
+        self.dd_option_values[title] = option_values
+
+        # If a callback function is provided, connect it
+        if on_change_callback and cmd_button_title:
+            dropdown_box.currentIndexChanged.connect(
+                lambda idx, t=title, cmd_t=cmd_button_title: on_change_callback(t, cmd_t, dropdown_box.itemText(idx), dropdown_box.itemData(idx))
+            )
+        elif on_change_callback and not cmd_button_title:
+            dropdown_box.currentIndexChanged.connect(
+                lambda idx, t=title: on_change_callback(t, dropdown_box.itemText(idx), dropdown_box.itemData(idx))
+            )
+
+        # Add button to vertical container
+        container.addWidget(dropdown_box)
+
+        # Wrap the layout in a QWidget and add it to the grid
+        container_widget = QtWidgets.QWidget()
+        container_widget.setLayout(container)
+        container_widget.setMaximumWidth(500) #prevent stretching (aesthetics)
+        self.layout.addWidget(container_widget, row, col)
+
+    #Changes the command string associated with a specified command button based on the title of the button
+    def change_cmd_button_command(self, title, new_command):
+        self.cmd_command_strings[title] = new_command
+    
+    #Specialized function specifically for the 40L TPC log pressure command, will likely not be useful for a general user of this program
+    #People using this program for a different use case will need to edit this function and/or write a new one to do the editing they need to the command string
+    def change_pressure_log_cmd(self, title, cmd_button_title, dropdown_text, new_option_value):
+        old_command = self.cmd_command_strings[cmd_button_title]
+
+        parts = old_command.split()
+        parts[-1] = str(new_option_value)
+
+        new_command = ' '.join(parts)
+
+        print(f'New Pressure Logging Command: {new_command}') #for debugging
+
+        self.change_cmd_button_command(cmd_button_title, new_command)
+
     
     # End all running subprocesses
     def cleanup(self):

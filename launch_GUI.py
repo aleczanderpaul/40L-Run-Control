@@ -14,13 +14,15 @@ pressure_log_filepath = '40L_run_control/pressure_log_07_23_25.csv'
 create_pressure_log_csv(pressure_log_filepath)
 
 pressure_tab = plotter.create_tab(tab_name='Pressure', plots_per_row=1)
-temp_tab = plotter.create_tab(tab_name='Temperature', plots_per_row=4)
+temp_tab = plotter.create_tab(tab_name='Temperature', plots_per_row=2)
+master_control_tab = plotter.create_tab(tab_name='Master Control', plots_per_row=2)
 
 pressure_tab.add_plot(title='Plot Vessel Pressure', x_axis=('Time since present', 's'), y_axis=('Pressure', 'Torr'), buffer_size=100, csv_filepath=pressure_log_filepath, datatype='pressure')
 pressure_tab.start_timer(title='Plot Vessel Pressure', interval_ms=1000)
 
+pressure_tab.add_dropdown_menu(title='Pressure log increment', option_names=['2s', '10s', '1m', '10m', '1hr'], option_values=[2, 10, 60, 600, 600*6], cmd_button_title='Log Vessel Pressure', on_change_callback=pressure_tab.change_pressure_log_cmd)
+
 pressure_tab.add_command_button(title='Log Vessel Pressure', command=f'.venv\Scripts\python.exe 40L_run_control/log_pressure.py {pressure_log_filepath} COM4 2')
-pressure_tab.add_command_button(title='test', command=f'timeout /T 10')
 pressure_tab.cmd_timer(500)
 
 temp_tab.add_plot(title='Plot VMM 1 Temperature', x_axis=('Time since present', 's'), y_axis=('Temperature', 'deg C'), buffer_size=100, csv_filepath=pressure_log_filepath, datatype='pressure')
@@ -31,8 +33,5 @@ temp_tab.start_timer(title='Plot VMM 2 Temperature', interval_ms=1000)
 
 temp_tab.add_plot(title='Plot VMM 3 Temperature', x_axis=('Time since present', 's'), y_axis=('Temperature', 'deg C'), buffer_size=100, csv_filepath=pressure_log_filepath, datatype='pressure')
 temp_tab.start_timer(title='Plot VMM 3 Temperature', interval_ms=1000)
-
-temp_tab.add_command_button(title='test', command=f'timeout /T 10')
-temp_tab.cmd_timer(500)
 
 plotter.run()
