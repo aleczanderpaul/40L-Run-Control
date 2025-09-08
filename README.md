@@ -124,6 +124,10 @@ Creates an interval timer that calls check_command_status. This function should 
 
 interval_ms is an int that specifies the length of the interval timer that calls the check_command_status function.
 
+### add_dropdown_menu(title, option_names, option_values, cmd_button_title, on_change_callback)
+
+Add documentation here
+
 ### cleanup()
 
 Terminates all the running subprocesses the tab widget started (e.g., logging pressure script). Is called by LivePlotter object when window is closed.
