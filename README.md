@@ -124,9 +124,43 @@ Creates an interval timer that calls check_command_status. This function should 
 
 interval_ms is an int that specifies the length of the interval timer that calls the check_command_status function.
 
-### add_dropdown_menu(title, option_names, option_values, cmd_button_title, on_change_callback)
+### add_dropdown_menu(title, option_names, option_values, ctrl_var=None, on_change_callback=None)
 
-Add documentation here
+Adds a dropdown menu that can call a function upon changing the option selected.
+
+option_names is a list of strings that are the name of each option in the dropdown menu to display in the GUI.
+
+option_values is a list that contains the underlying "value" (int, string, float, etc.) that corresponds to each option name. For example, if a dropdown option is named "1 second", the value for that option may be 1.0, which is used to change an interval timer.
+
+ctrl_var is anything else that the user wants to be passed to the function that is called when the dropdown menu option is changed (list, dict, int, str, float, etc.).
+
+on_change_callback is the function that gets called when the dropdown menu option is changed.
+
+### change_cmd_button_command(title, new_command)
+
+Changes the command string associated with a specified command button based on the title of the button.
+
+new_command is a string and is the new command to be associated with a command button (e.g., 'sleep 10').
+
+### change_pressure_log_cmd(title, ctrl_title, dropdown_text, new_option_value)
+
+Specialized function specifically for the 40L TPC log pressure command, will likely not be useful for a general user of this program.
+
+### change_buffer_size(title, ctrl_title, dropdown_text, new_option_value)
+
+Change the buffer size of a plot to display more or less data points. Intended to be attached to a dropdown menu.
+
+title and dropdown_text do not matter, they are only passed through this function as a consequence of intended for the on_change_callback function of the dropdown menus.
+
+ctrl_title is a string that is the title of the lot whose buffer is to be changed.
+
+new_option value is an int that is the new buffer size for the plot.
+
+### change_buffer_size_multiple(title, ctrl_titles, dropdown_text, new_option_value)
+
+Same as change_buffer_size, but used for changing multiple plots at once.
+
+ctrl_title is now a list of strings of the titles for each plot whose buffer size it to be changed.
 
 ### cleanup()
 
