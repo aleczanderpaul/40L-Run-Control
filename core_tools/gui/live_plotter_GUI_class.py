@@ -53,8 +53,23 @@ class LiveTab(QtWidgets.QWidget):
     def __init__(self, plots_per_row):
         super().__init__() # Call the constructor of the parent class (QWidget) to properly initialize the widget. This class is now a custom QTWidget
 
-        self.layout = QtWidgets.QGridLayout() ## Create a grid layout manager to arrange child widgets (plots, buttons) in a grid format.
-        self.setLayout(self.layout)
+        '''self.layout = QtWidgets.QGridLayout() ## Create a grid layout manager to arrange child widgets (plots, buttons) in a grid format.
+        self.setLayout(self.layout)'''
+
+        # Create a scroll area
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+
+        # Container widget inside the scroll area
+        container = QtWidgets.QWidget()
+        self.layout = QtWidgets.QGridLayout(container)
+
+        scroll.setWidget(container)
+
+        # Main layout for the tab is just the scroll area
+        outer_layout = QtWidgets.QVBoxLayout()
+        outer_layout.addWidget(scroll)
+        self.setLayout(outer_layout)
 
         self.plots_per_row = plots_per_row
         self.plot_counts = 0
@@ -123,6 +138,7 @@ class LiveTab(QtWidgets.QWidget):
         # Wrap the layout in a QWidget and add it to the grid
         container_widget = QtWidgets.QWidget()
         container_widget.setLayout(container)
+        container_widget.setMinimumSize(500, 500)
         self.layout.addWidget(container_widget, row, col)
 
     # Update function: fetches data from CSV and updates the plot
@@ -267,7 +283,7 @@ class LiveTab(QtWidgets.QWidget):
         self.interval_timers['cmd_timer'] = timer #Store primarily to prevent garbage collection
     
     #Add a dropdown menu with specified options and values attached to the options
-    def add_dropdown_menu(self, title, option_names, option_values, cmd_button_title=None, on_change_callback=None):
+    def add_dropdown_menu(self, title, option_names, option_values, ctrl_var=None, on_change_callback=None):
         index = self.plot_counts
         plots_per_row = self.plots_per_row
         self.plot_counts += 1
@@ -290,11 +306,11 @@ class LiveTab(QtWidgets.QWidget):
         self.dd_option_values[title] = option_values
 
         # If a callback function is provided, connect it
-        if on_change_callback and cmd_button_title:
+        if on_change_callback and ctrl_var:
             dropdown_box.currentIndexChanged.connect(
-                lambda idx, t=title, cmd_t=cmd_button_title: on_change_callback(t, cmd_t, dropdown_box.itemText(idx), dropdown_box.itemData(idx))
+                lambda idx, t=title, ctrl_v=ctrl_var: on_change_callback(t, ctrl_v, dropdown_box.itemText(idx), dropdown_box.itemData(idx))
             )
-        elif on_change_callback and not cmd_button_title:
+        elif on_change_callback and not ctrl_var:
             dropdown_box.currentIndexChanged.connect(
                 lambda idx, t=title: on_change_callback(t, dropdown_box.itemText(idx), dropdown_box.itemData(idx))
             )
@@ -314,8 +330,8 @@ class LiveTab(QtWidgets.QWidget):
     
     #Specialized function specifically for the 40L TPC log pressure command, will likely not be useful for a general user of this program
     #People using this program for a different use case will need to edit this function and/or write a new one to do the editing they need to the command string
-    def change_pressure_log_cmd(self, title, cmd_button_title, dropdown_text, new_option_value):
-        old_command = self.cmd_command_strings[cmd_button_title]
+    def change_pressure_log_cmd(self, title, ctrl_title, dropdown_text, new_option_value):
+        old_command = self.cmd_command_strings[ctrl_title]
 
         parts = old_command.split()
         parts[-1] = str(new_option_value)
@@ -324,8 +340,17 @@ class LiveTab(QtWidgets.QWidget):
 
         print(f'New Pressure Logging Command: {new_command}') #for debugging
 
-        self.change_cmd_button_command(cmd_button_title, new_command)
+        self.change_cmd_button_command(ctrl_title, new_command)
 
+    #Change the buffer size of a specified plot, intended to be attached to a dropdown menu
+    def change_buffer_size(self, title, ctrl_title, dropdown_text, new_option_value):
+        self.data[ctrl_title]["buffer_size"] = new_option_value
+
+    #Change the buffer size of multiple plots at once, intended to be attached to a dropdown menu
+    #ctrl_titles is a list of titles that correspond to the plots to change
+    def change_buffer_size_multiple(self, title, ctrl_titles, dropdown_text, new_option_value):
+        for i in range(len(ctrl_titles)):
+            self.data[str(ctrl_titles[i])]["buffer_size"] = new_option_value
     
     # End all running subprocesses
     def cleanup(self):
